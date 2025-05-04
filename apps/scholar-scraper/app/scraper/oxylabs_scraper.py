@@ -7,16 +7,22 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv, find_dotenv
 from .base import BaseScholarScraper
 
-# Load .env from project root
-load_dotenv(find_dotenv())
+# Load .env from project root\load_dotenv(find_dotenv())
 
 class OxylabsScraper(BaseScholarScraper):
     """
-    Oxylabs Realtime Scraper ile, insan davranışını taklit edip
-    boş/CAPTCHA sayfalarına retry mekanizması ekliyoruz.
+    Oxylabs Realtime Scraper ile:
+    - İnsan davranışını taklit eden gecikmeler
+    - CAPTCHA tespiti ve retry
+    - Coğrafi lokasyon rotasyonu (geo_location)
     Endpoint: POST https://realtime.oxylabs.io/v1/queries
     """
-    def __init__(self, max_retries: int = 3, backoff_factor: float = 2.0):
+    def __init__(
+        self,
+        max_retries: int = 3,
+        backoff_factor: float = 2.0,
+        geo_countries: list[str] = None
+    ):
         self.username = os.getenv("OXY_USERNAME")
         self.password = os.getenv("OXY_PASSWORD")
         if not self.username or not self.password:
@@ -24,21 +30,25 @@ class OxylabsScraper(BaseScholarScraper):
         self.endpoint = "https://realtime.oxylabs.io/v1/queries"
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
+        # Varsayılan ülke havuzu (ISO alpha-2 kodları)
+        self.geo_countries = geo_countries or ["US", "DE", "GB", "FR", "CA"]
         # İnsan davranışını taklit eden başlıklar
         self.headers = {
             "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
-                " AppleWebKit/537.36 (KHTML, like Gecko)" \
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                " AppleWebKit/537.36 (KHTML, like Gecko)"
                 " Chrome/100.0.4896.127 Safari/537.36"
             ),
             "Accept-Language": "en-US,en;q=0.9",
             "Referer": "https://scholar.google.com/"
         }
 
-    async def fetch_publications(self,
-                                 author_name: str,
-                                 max_pages: int = 5,
-                                 lang: str = "en") -> list[dict]:
+    async def fetch_publications(
+        self,
+        author_name: str,
+        max_pages: int = 5,
+        lang: str = "en"
+    ) -> list[dict]:
         publications: list[dict] = []
 
         async with httpx.AsyncClient(
@@ -46,6 +56,7 @@ class OxylabsScraper(BaseScholarScraper):
             headers=self.headers,
             timeout=60.0
         ) as client:
+
             for page_index in range(max_pages):
                 start = page_index * 10
                 target_url = (
@@ -54,14 +65,18 @@ class OxylabsScraper(BaseScholarScraper):
                     f"&hl={lang}&as_sdt=0,5"
                 )
 
-                payload = {
-                    "url": target_url,
-                    "source": "google"
-                }
-
                 retry = 0
                 while retry <= self.max_retries:
-                    # rastgele gecikme: 1-3 saniye
+                    # Geo-location rotasyonu
+                    country = self.geo_countries[retry % len(self.geo_countries)]
+                    payload = {
+                        "url": target_url,
+                        "source": "google",
+                        "geo_location": country
+                    }
+                    print(f"[DEBUG] Using geo_location: {country}")
+
+                    # Rastgele gecikme: 1-3 saniye
                     await asyncio.sleep(random.uniform(1, 3))
                     print(f"[DEBUG] Scraping page {page_index + 1}, try {retry + 1}: {target_url}")
 
@@ -77,9 +92,9 @@ class OxylabsScraper(BaseScholarScraper):
                         retry = self.max_retries + 1
                         break
 
-                    # CAPTCHA veya boş sayfa kontrolü
                     lower_html = html.lower()
-                    if any(keyword in lower_html for keyword in ["recaptcha"]):
+                    # CAPTCHA veya boş sayfa tespiti
+                    if "recaptcha" in lower_html:
                         retry += 1
                         wait = self.backoff_factor ** retry
                         print(f"[WARN] CAPTCHA detected, retry after {wait:.1f}s...")
@@ -101,7 +116,6 @@ class OxylabsScraper(BaseScholarScraper):
                         pdf_el = it.select_one("div.gs_or_ggsm a")
                         link = pdf_el["href"] if pdf_el and pdf_el.has_attr("href") else None
 
-                        # yılı yakala
                         year = None
                         meta = it.select_one("div.gs_a")
                         if meta:
@@ -109,11 +123,10 @@ class OxylabsScraper(BaseScholarScraper):
                             if m:
                                 year = int(m.group(0))
 
-                        # atıf sayısı
                         citations = None
                         for a in it.select("div.gs_fl a"):
                             txt = a.get_text()
-                            if "Cited" in txt or "Alıntı" in txt:
+                            if "cited" in txt.lower() or "alıntı" in txt.lower():
                                 mm = re.search(r"\d+", txt)
                                 if mm:
                                     citations = int(mm.group(0))
@@ -126,10 +139,10 @@ class OxylabsScraper(BaseScholarScraper):
                             "citations": citations
                         })
 
-                    # break retry döngüsünden
+                    # Başarılı parse: retry döngüsünden çık
                     break
 
-                # CAPTCHA/artık veri yoksa sayfa döngüsünü kır
+                # CAPTCHA veya boş sayfa nedeniyle max_retries aşıldıysa sayfa döngüsünü kır
                 if retry > self.max_retries or not items:
                     break
 
