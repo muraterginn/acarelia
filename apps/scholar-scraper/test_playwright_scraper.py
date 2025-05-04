@@ -3,7 +3,7 @@ from app.scraper.playwright_scraper import PlaywrightScraper
 
 async def main():
     scraper = PlaywrightScraper()
-    author_name = "Bulut Altintas"  # Scholar profili olmayan biri
+    author_name = "Tacha Serif"  # Scholar profili olmayan biri
     print(f"Fetching publications for: {author_name}")
     results = await scraper.fetch_publications(author_name, max_pages=3)
     

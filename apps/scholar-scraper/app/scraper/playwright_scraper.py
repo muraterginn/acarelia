@@ -39,7 +39,7 @@ class PlaywrightScraper(BaseScholarScraper):
         async with async_playwright() as p:
             # launch args
             launch_args = {
-                "headless": True,
+                "headless": False,
                 "slow_mo":  100
             }
 
