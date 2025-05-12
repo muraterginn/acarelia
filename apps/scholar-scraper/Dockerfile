@@ -1,15 +1,16 @@
-# 1) Base image
 FROM python:3.11-slim
-
-# 2) Çalışma dizini
 WORKDIR /app
 
-# 3) Gereksinimleri kopyala ve yükle
-COPY requirements.txt .
+# 1) requirements.txt’in tam yolu
+COPY apps/scholar-scraper/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4) Uygulama kodunu kopyala
-COPY app/ ./app
+# 2) common klasörünü kopyala
+COPY common ./common
 
-# 5) Çalıştırma komutu
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+# 3) scraper uygulamasını kopyala
+COPY apps/scholar-scraper/app ./app
+
+ENV PYTHONPATH=/app
+
+CMD ["python", "-u", "app/worker.py"]

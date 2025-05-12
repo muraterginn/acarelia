@@ -14,12 +14,12 @@ class StatusResponse(BaseModel):
     job_id: str
     status: str
 
-class Paper(BaseModel):
-    title: str
-    year: Optional[int] = None
-    link: Optional[str] = None
-    citations: Optional[int] = None
+# class Paper(BaseModel):
+#     title: str
+#     year: Optional[int] = None
+#     link: Optional[str] = None
+#     citations: Optional[int] = None
 
-class ScrapeResult(BaseModel):
-    job_id: str
-    results: List[Paper]
+# class ScrapeResult(BaseModel):
+#     job_id: str
+#     results: List[Paper]
