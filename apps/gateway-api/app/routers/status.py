@@ -1,10 +1,12 @@
 from fastapi import APIRouter
 from common.models import StatusResponse
-from app.services.state_store import get_status
+from common.state_store import StateStore
+from app.config import settings
 
 router = APIRouter()
+store = StateStore(settings.REDIS_URL)
 
 @router.get("/status/{job_id}", response_model=StatusResponse)
 async def status(job_id: str):
-    status = await get_status(job_id)
-    return StatusResponse(job_id=job_id, status=status)
+    s = await store.get_status(job_id)
+    return StatusResponse(job_id=job_id, status=s)

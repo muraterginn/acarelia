@@ -6,26 +6,12 @@ import redis.asyncio as aioredis
 from aio_pika import IncomingMessage
 
 from common.messaging import RabbitPublisher, RabbitConsumer
+from common.state_store import StateStore
 from app.config import settings
 from app.scraper.fetch_router import fetch_publications
 
 logger = logging.getLogger("scholar-scraper")
-
-# init Redis client (singleton)
-_redis: aioredis.Redis | None = None
-async def get_redis() -> aioredis.Redis:
-    global _redis
-    if _redis is None:
-        _redis = aioredis.from_url(
-            settings.REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True
-        )
-    return _redis
-
-async def set_status(job_id: str, status: str):
-    r = await get_redis()
-    await r.set(f"job:{job_id}:status", status)
+store = StateStore(settings.REDIS_URL)
 
 # init RabbitMQ publisher & consumer
 publisher = RabbitPublisher(settings.RABBITMQ_URL)
@@ -43,22 +29,22 @@ async def handle_scrape(payload: dict):
         return
 
     logger.info(f"[{job_id}] Scraping started for author '{author}'")
-    await set_status(job_id, "Scraping started.")
+    await store.set_status(job_id, "Scraping started.")
 
     try:
         publications = await fetch_publications(author)
     except Exception as e:
         logger.exception(f"[{job_id}] Scraper error: {e}")
-        await set_status(job_id, "Scraper error.")
+        await store.set_status(job_id, "Scraper error.")
         return
 
     if not publications:
         logger.info(f"[{job_id}] Scraper found no results")
-        await set_status(job_id, "Scraper found no results.")
+        await store.set_status(job_id, "Scraper found no results.")
         return
     else:
         logger.info(f"[{job_id}] Scraper completed successfully ({len(publications)} papers)")
-        await set_status(job_id, "Scraper completed successfully.")
+        await store.set_status(job_id, "Scraper completed successfully.")
 
     # prepare DOI request payload
     doi_request = {
