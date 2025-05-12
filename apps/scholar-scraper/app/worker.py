@@ -55,6 +55,7 @@ async def handle_scrape(payload: dict):
     if not publications:
         logger.info(f"[{job_id}] Scraper found no results")
         await set_status(job_id, "Scraper found no results.")
+        return
     else:
         logger.info(f"[{job_id}] Scraper completed successfully ({len(publications)} papers)")
         await set_status(job_id, "Scraper completed successfully.")
