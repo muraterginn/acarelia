@@ -71,3 +71,15 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+
+  doi-resolver:
+    build:
+      context: .
+      dockerfile: apps/doi-resolver/Dockerfile
+    container_name: acarelia_doi_resolver
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped

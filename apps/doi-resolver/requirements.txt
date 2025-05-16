@@ -1,0 +1,4 @@
+aio-pika
+httpx
+rapidfuzz
+pydantic-settings
