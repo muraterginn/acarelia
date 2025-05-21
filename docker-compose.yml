@@ -82,4 +82,20 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  text-extractor:
+    build:
+      context: .
+      dockerfile: apps/text-extractor/Dockerfile
+    container_name: acarelia_text_extractor
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped

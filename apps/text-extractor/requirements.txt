@@ -1,0 +1,7 @@
+aio-pika
+redis
+httpx
+pdfplumber
+beautifulsoup4
+lxml
+pydantic-settings
