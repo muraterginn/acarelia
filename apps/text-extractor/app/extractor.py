@@ -1,6 +1,6 @@
 import io
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import httpx
 import pdfplumber
@@ -34,10 +34,10 @@ class Extractor:
                 )
             },
         )
-
         self.scraper = scraper
 
     async def resolve_oa_urls(self, doi: str) -> Dict[str, Optional[str]]:
+        # Unpaywall primary
         url = f"{self.unpaywall_api_url}/{doi}"
         resp = await self._client.get(url, params={"email": self.unpaywall_email})
         resp.raise_for_status()
@@ -46,9 +46,12 @@ class Extractor:
         pdf_url = best.get("url_for_pdf")
         html_url = best.get("url")
 
-        if pdf_url or html_url:
+        if pdf_url:
             return {"pdf": pdf_url, "html": html_url}
+        if html_url:
+            return {"pdf": None, "html": html_url}
 
+        # Crossref fallback
         cr_url = f"{self.crossref_api_url}/{doi}"
         resp2 = await self._client.get(cr_url, params={"mailto": self.crossref_mailto})
         resp2.raise_for_status()
@@ -56,10 +59,11 @@ class Extractor:
         for link in cr_msg.get("link", []):
             if link.get("content-type", "").lower() == "application/pdf":
                 return {"pdf": link.get("URL"), "html": None}
+
         return {"pdf": None, "html": None}
 
     async def extract_pdf_text(self, pdf_bytes: bytes) -> str:
-        text_chunks = []
+        text_chunks: List[str] = []
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             for page in pdf.pages:
                 text = page.extract_text()
@@ -67,41 +71,63 @@ class Extractor:
                     text_chunks.append(text)
         return "\n".join(text_chunks)
 
-    async def extract_html_text(self, html: str) -> str:
-        soup = BeautifulSoup(html, "lxml")
-        return soup.get_text(separator="\n", strip=True)
-
-    async def get_text_for_doi(self, doi: str) -> str:
-        urls = await self.resolve_oa_urls(doi)
-
-        if urls.get("pdf"):
-            self.logger.debug("Downloading PDF for DOI %s → %s", doi, urls["pdf"])
+    async def _extract_from_landing(self, landing_url: str) -> Optional[str]:
+        # Attempt direct landing fetch
+        try:
+            resp = await self._client.get(landing_url)
+            resp.raise_for_status()
+            html = resp.text
+        except httpx.HTTPStatusError as e:
+            self.logger.warning("Landing page fetch failed (%s), trying Oxylabs…", e)
+            if not self.scraper:
+                return None
             try:
-                resp = await self._client.get(urls["pdf"])
+                html = await self.scraper.fetch_html(landing_url)
+            except Exception as ex:
+                self.logger.warning("Oxylabs landing fetch failed: %s", ex)
+                return None
+
+        soup = BeautifulSoup(html, "lxml")
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if href.lower().endswith(".pdf"):
+                return href
+        return None
+
+    async def get_text_for_doi(self, doi: str) -> Optional[str]:
+        urls = await self.resolve_oa_urls(doi)
+        candidates: List[str] = []
+
+        # Primary PDF URL
+        if urls.get("pdf"):
+            candidates.append(urls["pdf"])
+        # Fallback landing page
+        if urls.get("html"):
+            candidates.append(urls["html"])
+
+        # Landing page PDF link extraction
+        if urls.get("html"):
+            pdf_link = await self._extract_from_landing(urls["html"])
+            if pdf_link:
+                candidates.insert(0, pdf_link)
+
+        # Deduplicate URLs
+        seen = set()
+        candidates = [u for u in candidates if u and not (u in seen or seen.add(u))]
+
+        # Try each candidate for PDF download + extract
+        for url in candidates:
+            try:
+                head = await self._client.head(url)
+                ctype = head.headers.get("content-type", "").lower()
+                if "application/pdf" not in ctype and not url.lower().endswith(".pdf"):
+                    continue
+                resp = await self._client.get(url)
                 resp.raise_for_status()
                 return await self.extract_pdf_text(resp.content)
-            except httpx.HTTPStatusError as pdf_err:
-                self.logger.warning(
-                    "PDF download failed (%s), fallback to HTML", pdf_err
-                )
+            except Exception as e:
+                self.logger.warning("PDF candidate %s failed: %s", url, e)
+                continue
 
-        if urls.get("html"):
-            self.logger.debug(
-                "Downloading HTML for DOI %s → %s", doi, urls["html"]
-            )
-            try:
-                resp = await self._client.get(urls["html"])
-                resp.raise_for_status()
-                html = resp.text
-            except httpx.HTTPStatusError as html_err:
-                self.logger.warning(
-                    "Direct HTML fetch failed (%s), attempting Oxylabs scraper…",
-                    html_err,
-                )
-                if not self.scraper:
-                    raise
-                html = await self.scraper.fetch_html(urls["html"])
-
-            return await self.extract_html_text(html)
-
-        raise RuntimeError(f"No open-access URL found for DOI {doi}")
+        # No PDF extracted
+        return None
