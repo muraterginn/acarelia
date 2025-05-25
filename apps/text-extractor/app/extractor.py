@@ -1,5 +1,6 @@
 import io
 import logging
+import re
 from typing import Dict, List, Optional
 
 import httpx
@@ -69,7 +70,8 @@ class Extractor:
                 text = page.extract_text()
                 if text:
                     text_chunks.append(text)
-        return "\n".join(text_chunks)
+        raw = "\n".join(text_chunks)
+        return self._normalize_text(raw)
 
     async def _extract_from_landing(self, landing_url: str) -> Optional[str]:
         # Attempt direct landing fetch
@@ -101,21 +103,21 @@ class Extractor:
         # Primary PDF URL
         if urls.get("pdf"):
             candidates.append(urls["pdf"])
-        # Fallback landing page
+        # Fallback landing page URL
         if urls.get("html"):
             candidates.append(urls["html"])
 
-        # Landing page PDF link extraction
+        # Extract PDF link from landing page
         if urls.get("html"):
             pdf_link = await self._extract_from_landing(urls["html"])
             if pdf_link:
                 candidates.insert(0, pdf_link)
 
-        # Deduplicate URLs
+        # Deduplicate
         seen = set()
-        candidates = [u for u in candidates if u and not (u in seen or seen.add(u))]
+        candidates = [u for u in candidates if u and u not in seen and not seen.add(u)]
 
-        # Try each candidate for PDF download + extract
+        # Try each candidate
         for url in candidates:
             try:
                 head = await self._client.head(url)
@@ -131,3 +133,17 @@ class Extractor:
 
         # No PDF extracted
         return None
+
+    def _normalize_text(self, text: str) -> str:
+        # Normalize line breaks
+        text = text.replace('\r\n', '\n')
+        # Remove page numbers or isolated digits
+        text = re.sub(r'(?m)^\s*\d+\s*$', '', text)
+        # Collapse multiple empty lines to two
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        # Merge broken lines within paragraphs
+        text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)
+        # Remove excessive spaces
+        text = re.sub(r' {2,}', ' ', text)
+        # Strip leading/trailing whitespace
+        return text.strip()

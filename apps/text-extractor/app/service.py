@@ -42,7 +42,7 @@ class TextExtractorService:
         try:
             job = Job.parse_obj(payload)
         except Exception as e:
-            self.logger.error("❌ Geçersiz payload: %s", e)
+            self.logger.error("Geçersiz payload: %s", e)
             return
 
         await self.state_store.set_status(job.job_id, "Extract service started.")
@@ -53,21 +53,18 @@ class TextExtractorService:
                 continue
 
             doi = art.doi
-            await self.state_store.set_status(job.job_id, f"extracting:{doi}")
             try:
                 text = await self.extractor.get_text_for_doi(doi)
                 art.text = text
-                await self.state_store.set_status(job.job_id, f"extracted:{doi}")
                 self.logger.info("✔ Extracted text for DOI %s", doi)
             except Exception as ex:
-                self.logger.exception("❌ Error extracting DOI %s: %s", doi, ex)
-                await self.state_store.set_status(job.job_id, f"error:{doi}")
+                self.logger.exception("Error extracting DOI %s: %s", doi, ex)
 
         # Tüm sonuçları yayımla
         try:
             await self.publisher.publish(self.output_queue, job.dict())
             await self.state_store.set_status(job.job_id, "Extract service successfully finished.")
-            self.logger.info("🎉 Job %s done, published to %s", job.job_id, self.output_queue)
+            self.logger.info("Job %s done, published to %s", job.job_id, self.output_queue)
         except Exception as ex:
-            self.logger.exception("❌ Publish failed for job %s: %s", job.job_id, ex)
+            self.logger.exception("Publish failed for job %s: %s", job.job_id, ex)
             await self.state_store.set_status(job.job_id, "error")
