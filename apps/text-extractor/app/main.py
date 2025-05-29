@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from common.messaging import RabbitConsumer, RabbitPublisher
-from common.state_store import StateStore
+from common.job_store import JobStore
 
 from config import settings
 from oxylabs_scraper import OxylabsScraper
@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
     consumer = RabbitConsumer(settings.RABBITMQ_URL)
     publisher = RabbitPublisher(settings.RABBITMQ_URL)
-    state_store = StateStore(settings.REDIS_URL)
+    job_store = JobStore(settings.REDIS_URL)
 
     oxylabs_scraper = OxylabsScraper(
         max_retries=3,
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     service = TextExtractorService(
         consumer=consumer,
         publisher=publisher,
-        state_store=state_store,
+        job_store=job_store,
         extractor=extractor,
         input_queue=settings.INPUT_QUEUE,
         output_queue=settings.OUTPUT_QUEUE,

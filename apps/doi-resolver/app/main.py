@@ -4,7 +4,7 @@ import httpx
 from rapidfuzz import fuzz
 
 from common.messaging import RabbitConsumer, RabbitPublisher
-from common.state_store import StateStore
+from common.job_store import JobStore
 from app.config import settings
 
 DOI_RESOLVE_QUEUE    = "doi-resolve-requests"
@@ -13,7 +13,7 @@ TEXT_EXTRACT_QUEUE   = "text-extract-requests"
 logger = logging.getLogger("doi-resolver")
 logging.basicConfig(level=logging.INFO)
 
-state_store = StateStore(settings.REDIS_URL)
+job_store = JobStore(settings.REDIS_URL)
 
 def normalize(text: str) -> str:
     return "".join(c.lower() for c in text if c.isalnum() or c.isspace()).strip()
@@ -91,7 +91,7 @@ async def on_message(payload: dict):
     publisher = RabbitPublisher(settings.RABBITMQ_URL)
 
     # --- 1) İşleme başlarken status güncelle ---
-    await state_store.set_status(job_id, "doi_resolving")
+    await job_store.set_field(job_id, "state", "DOIs resolving.")
     logger.info(f"[{job_id}] status set to 'doi_resolving'")
 
     enriched = []
@@ -127,13 +127,13 @@ async def on_message(payload: dict):
         logger.info(f"[{job_id}] published to '{TEXT_EXTRACT_QUEUE}'")
 
         # --- 3) İşlem bitti, status güncelle ---
-        await state_store.set_status(job_id, "doi_resolved")
+        await job_store.set_field(job_id, "state", "DOIs resolved.")
         logger.info(f"[{job_id}] status set to 'doi_resolved'")
 
     except Exception as e:
         # --- 4) Kritik hata ---
         logger.exception(f"[{job_id}] Unexpected error in on_message: {e}")
-        await state_store.set_status(job_id, "doi_error")
+        await job_store.set_field(job_id, "state", "DOI resolver error.")
         logger.info(f"[{job_id}] status set to 'doi_error'")
 
 

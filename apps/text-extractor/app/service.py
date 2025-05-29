@@ -3,7 +3,7 @@ import logging
 from typing import Any
 
 from common.messaging import RabbitConsumer, RabbitPublisher
-from common.state_store import StateStore
+from common.job_store import JobStore
 
 from models import Job, Article
 from extractor import Extractor
@@ -13,7 +13,7 @@ class TextExtractorService:
         self,
         consumer: RabbitConsumer,
         publisher: RabbitPublisher,
-        state_store: StateStore,
+        job_store: JobStore,
         extractor: Extractor,
         input_queue: str,
         output_queue: str,
@@ -22,7 +22,7 @@ class TextExtractorService:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.consumer = consumer
         self.publisher = publisher
-        self.state_store = state_store
+        self.job_store = job_store
         self.extractor = extractor
         self.input_queue = input_queue
         self.output_queue = output_queue
@@ -34,37 +34,41 @@ class TextExtractorService:
         await self.consumer.consume(
             self.input_queue, self._on_message, prefetch_count=self.prefetch_count
         )
-        self.logger.info("🛠 TextExtractorService started, waiting for messages…")
-        # Sonsuz loop, servis kapanmasın
-        await asyncio.Event().wait()
+        self.logger.info("TextExtractorService started, waiting for messages…")
+        await asyncio.Event().wait()  # keep alive
 
     async def _on_message(self, payload: dict) -> None:
         try:
             job = Job.parse_obj(payload)
         except Exception as e:
-            self.logger.error("Geçersiz payload: %s", e)
+            self.logger.error("Invalid payload: %s", e)
             return
 
-        await self.state_store.set_status(job.job_id, "Extract service started.")
+        # mark start
+        await self.job_store.set_field(job.job_id, "state", "Extract service started.")
         self.logger.info("➡ Processing job %s", job.job_id)
 
         for art in job.results:
             if not (art.doi and art.verified and art.open_access):
                 continue
 
-            doi = art.doi
             try:
-                text = await self.extractor.get_text_for_doi(doi)
+                text = await self.extractor.get_text_for_doi(art.doi)
                 art.text = text
-                self.logger.info("✔ Extracted text for DOI %s", doi)
+                self.logger.info("✔ Extracted text for DOI %s", art.doi)
+                self.logger.info(
+                    "─── Extracted full text for DOI %s ───\n%s\n────────────────────────────",
+                    art.doi,
+                    text or "<empty>",
+                )
             except Exception as ex:
-                self.logger.exception("Error extracting DOI %s: %s", doi, ex)
+                self.logger.exception("Error extracting DOI %s: %s", art.doi, ex)
 
-        # Tüm sonuçları yayımla
+        # publish results
         try:
             await self.publisher.publish(self.output_queue, job.dict())
-            await self.state_store.set_status(job.job_id, "Extract service successfully finished.")
+            await self.job_store.set_field(job.job_id, "state", "Extract service successfully finished.")
             self.logger.info("Job %s done, published to %s", job.job_id, self.output_queue)
         except Exception as ex:
             self.logger.exception("Publish failed for job %s: %s", job.job_id, ex)
-            await self.state_store.set_status(job.job_id, "error")
+            await self.job_store.set_field(job.job_id, "state", "Extract service error.")
