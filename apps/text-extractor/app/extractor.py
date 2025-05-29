@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 
 from oxylabs_scraper import OxylabsScraper
 
+
 class Extractor:
     def __init__(
         self,
@@ -64,13 +65,30 @@ class Extractor:
         return {"pdf": None, "html": None}
 
     async def extract_pdf_text(self, pdf_bytes: bytes) -> str:
+        """
+        Open the PDF bytes with pdfplumber using tighter layout tolerances,
+        join all page texts, fix unicode escapes and mojibake, then normalize.
+        """
         text_chunks: List[str] = []
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             for page in pdf.pages:
-                text = page.extract_text()
+                text = page.extract_text(
+                    x_tolerance=1,
+                    y_tolerance=1,
+                    layout=True,
+                )
                 if text:
                     text_chunks.append(text)
         raw = "\n".join(text_chunks)
+
+        # 1) Decode double-escaped unicode (e.g. "\\u00e2\\u0080\\u0094")
+        raw = raw.encode("utf-8", "surrogatepass").decode("unicode_escape", "ignore")
+        # 2) Attempt to fix mojibake from latin1->utf-8
+        try:
+            raw = raw.encode("latin1", "ignore").decode("utf-8", "ignore")
+        except Exception:
+            pass
+
         return self._normalize_text(raw)
 
     async def _extract_from_landing(self, landing_url: str) -> Optional[str]:
@@ -167,5 +185,7 @@ class Extractor:
         text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)
         # Remove excessive spaces
         text = re.sub(r' {2,}', ' ', text)
+        # Insert space between lowercase/digit ⇄ uppercase transitions
+        text = re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', text)
         # Strip leading/trailing whitespace
         return text.strip()

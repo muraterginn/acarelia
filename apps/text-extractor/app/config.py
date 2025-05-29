@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     INPUT_QUEUE: str = "text-extract-requests"
     OUTPUT_QUEUE: str = "ai-detection-requests"
+    OUTPUT_QUEUE_2: str = "plagiarism-detection-requests"
     PREFETCH_COUNT: int = 5
 
     class Config:

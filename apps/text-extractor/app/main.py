@@ -39,6 +39,7 @@ if __name__ == "__main__":
         extractor=extractor,
         input_queue=settings.INPUT_QUEUE,
         output_queue=settings.OUTPUT_QUEUE,
+        output_queue_2=settings.OUTPUT_QUEUE_2,
         prefetch_count=settings.PREFETCH_COUNT,
     )
 
