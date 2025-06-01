@@ -4,7 +4,7 @@ class Settings:
     RABBITMQ_URL: str = os.getenv("RABBITMQ_URL", "")
     REDIS_URL: str = os.getenv("REDIS_URL", "")
 
-    OXY_USERNAME: str = os.getenv("OXY_USERNAME", "")
-    OXY_PASSWORD: str = os.getenv("OXY_PASSWORD", "")
+    WRITER_API_URL: str = os.getenv("WRITER_API_URL", "")
+    WRITER_API_KEY: str = os.getenv("WRITER_API_KEY", "")
 
 settings = Settings()

@@ -4,6 +4,5 @@ scholarly
 playwright
 aio-pika
 pydantic
-pydantic-settings
 redis
 python-dotenv

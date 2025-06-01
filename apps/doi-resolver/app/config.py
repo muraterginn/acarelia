@@ -1,21 +1,16 @@
-from pydantic_settings import BaseSettings
-from pathlib import Path
+import os
 
-class Settings(BaseSettings):
-    RABBITMQ_URL: str
-    REDIS_URL: str
+class Settings:
+    RABBITMQ_URL: str = os.getenv("RABBITMQ_URL", "")
+    REDIS_URL: str = os.getenv("REDIS_URL", "")
 
-    CROSSREF_MAILTO: str
-    CROSSREF_API_URL: str
+    CROSSREF_MAILTO: str = os.getenv("CROSSREF_MAILTO", "")
+    CROSSREF_API_URL: str = os.getenv("CROSSREF_API_URL", "")
 
-    UNPAYWALL_EMAIL: str
-    UNPAYWALL_API_URL: str
+    UNPAYWALL_EMAIL: str = os.getenv("UNPAYWALL_EMAIL", "")
+    UNPAYWALL_API_URL: str = os.getenv("UNPAYWALL_API_URL", "")
 
-    TITLE_SIM_THRESHOLD: float = 60.0
-    AUTHOR_SIM_THRESHOLD: float = 75.0
-
-    class Config:
-        env_file = str(Path(__file__).resolve().parents[2] / ".env")
-        env_file_encoding = "utf-8"
+    TITLE_SIM_THRESHOLD: float = float(os.getenv("TITLE_SIM_THRESHOLD", "60.0"))
+    AUTHOR_SIM_THRESHOLD: float = float(os.getenv("AUTHOR_SIM_THRESHOLD", "75.0"))
 
 settings = Settings()

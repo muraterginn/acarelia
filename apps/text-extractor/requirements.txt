@@ -2,6 +2,6 @@ aio-pika
 redis
 httpx
 pdfplumber
+pydantic
 beautifulsoup4
 lxml
-pydantic-settings

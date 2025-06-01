@@ -1,0 +1,5 @@
+aio-pika
+redis
+httpx
+python-dotenv
+pydantic-settings

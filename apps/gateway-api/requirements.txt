@@ -2,6 +2,5 @@ fastapi
 uvicorn
 aio-pika
 pydantic
-pydantic-settings
 redis
 python-dotenv

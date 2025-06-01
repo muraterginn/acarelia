@@ -1,5 +1,4 @@
 aio-pika
 httpx
 rapidfuzz
-pydantic-settings
 redis

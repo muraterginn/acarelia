@@ -70,9 +70,9 @@ class TextExtractorService:
         # publish results
         try:
             #await self.publisher.publish(self.output_queue, job.dict())
+            await self.job_store.set_field(job.job_id, "job_data", json.dumps(job.dict()))
             await self.publisher.publish(self.output_queue, {"job_id": job.job_id})
             await self.publisher.publish(self.output_queue_2, {"job_id": job.job_id})
-            await self.job_store.set_field(job.job_id, "job_data", json.dumps(job.dict()))
             await self.job_store.set_field(job.job_id, "state", "Extract service successfully finished.")
             self.logger.info("Job %s done, published to %s", job.job_id, self.output_queue)
         except Exception as ex:

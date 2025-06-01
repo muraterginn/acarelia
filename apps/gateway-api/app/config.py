@@ -1,15 +1,7 @@
-# gateway-api/app/config.py
+import os
 
-from pydantic_settings import BaseSettings
-from pathlib import Path
-
-class Settings(BaseSettings):
-    RABBITMQ_URL: str
-    REDIS_URL: str
-
-    class Config:
-        # env dosyasının proje kökünde olduğunu varsayıyoruz
-        env_file = str(Path(__file__).resolve().parents[2] / ".env")
-        env_file_encoding = "utf-8"
+class Settings:
+    RABBITMQ_URL: str = os.getenv("RABBITMQ_URL", "")
+    REDIS_URL: str = os.getenv("REDIS_URL", "")
 
 settings = Settings()
