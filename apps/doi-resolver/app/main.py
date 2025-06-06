@@ -20,7 +20,6 @@ def normalize(text: str) -> str:
 
 
 async def resolve_doi_for_article(job_id: str, title: str, author: str) -> tuple[str | None, bool]:
-    """ CrossRef üzerinden DOI ve doğrulama bilgisini döner. """
     params = {
         "query.bibliographic": title,
         "query.author":       author,
@@ -36,7 +35,6 @@ async def resolve_doi_for_article(job_id: str, title: str, author: str) -> tuple
         logger.warning(f"[{job_id}] '{title}' → no CrossRef items")
         return None, False
 
-    # Başlık eşiğini geçenleri filtrele
     title_norm = normalize(title)
     passed_title = []
     max_title_sim = 0.0
@@ -51,7 +49,6 @@ async def resolve_doi_for_article(job_id: str, title: str, author: str) -> tuple
         logger.info(f"[{job_id}] '{title}' → title sim max={max_title_sim:.1f}% < {settings.TITLE_SIM_THRESHOLD}%")
         return None, False
 
-    # Yazar eşiği
     author_norm = normalize(author)
     for item in passed_title:
         best_sim = 0.0
@@ -68,7 +65,6 @@ async def resolve_doi_for_article(job_id: str, title: str, author: str) -> tuple
 
 
 async def detect_open_access(job_id: str, doi: str) -> bool:
-    """ Unpaywall API üzerinden is_oa bilgisini döner. """
     url = f"{settings.UNPAYWALL_API_URL}/{doi}"
     params = {"email": settings.UNPAYWALL_EMAIL}
     try:
@@ -90,7 +86,6 @@ async def on_message(payload: dict):
     results = payload.get("results", [])
     publisher = RabbitPublisher(settings.RABBITMQ_URL)
 
-    # --- 1) İşleme başlarken status güncelle ---
     await job_store.set_field(job_id, "state", "DOIs resolving.")
     logger.info(f"[{job_id}] status set to 'doi_resolving'")
 
@@ -118,7 +113,6 @@ async def on_message(payload: dict):
             })
             enriched.append(rec)
 
-        # --- 2) Kuyruğa başarılı gönderme ---
         await publisher.publish(TEXT_EXTRACT_QUEUE, {
             "job_id": job_id,
             "author": author,
@@ -126,12 +120,10 @@ async def on_message(payload: dict):
         })
         logger.info(f"[{job_id}] published to '{TEXT_EXTRACT_QUEUE}'")
 
-        # --- 3) İşlem bitti, status güncelle ---
         await job_store.set_field(job_id, "state", "DOIs resolved.")
         logger.info(f"[{job_id}] status set to 'doi_resolved'")
 
     except Exception as e:
-        # --- 4) Kritik hata ---
         logger.exception(f"[{job_id}] Unexpected error in on_message: {e}")
         await job_store.set_field(job_id, "state", "DOI resolver error.")
         logger.info(f"[{job_id}] status set to 'doi_error'")

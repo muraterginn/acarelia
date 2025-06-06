@@ -44,11 +44,14 @@ class AiAnalyzerService:
                 return
 
             logger.info("New job received, job_id=%s", job_id)
+            await self.job_store.set_field(job_id, "ai_analyze_status", "AI analyzer started.")
             await self.process_job(job_id)
+            await self.job_store.set_field(job_id, "ai_analyze_status", "AI analyzer finished successfully.")
             logger.info("Job %s processed successfully.", job_id)
 
         except Exception as exc:
             logger.exception("Error while processing job (job_id=%s): %s", payload.get("job_id"), exc)
+            await self.job_store.set_field(job_id, "ai_analyze_status", "AI analyzer error.")
 
     async def process_job(self, job_id: str) -> None:
         raw_job_data = await self.job_store.get_field(job_id, "job_data")

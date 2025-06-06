@@ -10,13 +10,6 @@ from .base import BaseScholarScraper
 # Load .env from project root\load_dotenv(find_dotenv())
 
 class OxylabsScraper(BaseScholarScraper):
-    """
-    Oxylabs Realtime Scraper ile:
-    - İnsan davranışını taklit eden gecikmeler
-    - CAPTCHA tespiti ve retry
-    - Coğrafi lokasyon rotasyonu (geo_location)
-    Endpoint: POST https://realtime.oxylabs.io/v1/queries
-    """
     def __init__(
         self,
         max_retries: int = 3,
@@ -30,9 +23,7 @@ class OxylabsScraper(BaseScholarScraper):
         self.endpoint = "https://realtime.oxylabs.io/v1/queries"
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
-        # Varsayılan ülke havuzu (ISO alpha-2 kodları)
         self.geo_countries = geo_countries or ["US", "DE", "GB", "FR", "CA"]
-        # İnsan davranışını taklit eden başlıklar
         self.headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -67,7 +58,6 @@ class OxylabsScraper(BaseScholarScraper):
 
                 retry = 0
                 while retry <= self.max_retries:
-                    # Geo-location rotasyonu
                     country = self.geo_countries[retry % len(self.geo_countries)]
                     payload = {
                         "url": target_url,
@@ -76,7 +66,6 @@ class OxylabsScraper(BaseScholarScraper):
                     }
                     print(f"[DEBUG] Using geo_location: {country}")
 
-                    # Rastgele gecikme: 1-3 saniye
                     await asyncio.sleep(random.uniform(1, 3))
                     print(f"[DEBUG] Scraping page {page_index + 1}, try {retry + 1}: {target_url}")
 
@@ -84,7 +73,6 @@ class OxylabsScraper(BaseScholarScraper):
                     resp.raise_for_status()
                     data = resp.json()
 
-                    # HTML içeriğini al
                     try:
                         html = data["results"][0]["content"]
                     except (KeyError, IndexError):
@@ -93,7 +81,6 @@ class OxylabsScraper(BaseScholarScraper):
                         break
 
                     lower_html = html.lower()
-                    # CAPTCHA veya boş sayfa tespiti
                     if "recaptcha" in lower_html:
                         retry += 1
                         wait = self.backoff_factor ** retry
@@ -109,7 +96,6 @@ class OxylabsScraper(BaseScholarScraper):
                         retry = self.max_retries + 1
                         break
 
-                    # Yayınları parse et
                     for it in items:
                         title_el = it.select_one("h3.gs_rt")
                         title = title_el.get_text(strip=True) if title_el else "Unknown"
@@ -139,10 +125,8 @@ class OxylabsScraper(BaseScholarScraper):
                             "citations": citations
                         })
 
-                    # Başarılı parse: retry döngüsünden çık
                     break
 
-                # CAPTCHA veya boş sayfa nedeniyle max_retries aşıldıysa sayfa döngüsünü kır
                 if retry > self.max_retries or not items:
                     break
 

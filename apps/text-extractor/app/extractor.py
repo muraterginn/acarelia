@@ -39,7 +39,6 @@ class Extractor:
         self.scraper = scraper
 
     async def resolve_oa_urls(self, doi: str) -> Dict[str, Optional[str]]:
-        # Unpaywall primary
         url = f"{self.unpaywall_api_url}/{doi}"
         resp = await self._client.get(url, params={"email": self.unpaywall_email})
         resp.raise_for_status()
@@ -53,7 +52,6 @@ class Extractor:
         if html_url:
             return {"pdf": None, "html": html_url}
 
-        # Crossref fallback
         cr_url = f"{self.crossref_api_url}/{doi}"
         resp2 = await self._client.get(cr_url, params={"mailto": self.crossref_mailto})
         resp2.raise_for_status()
@@ -65,10 +63,6 @@ class Extractor:
         return {"pdf": None, "html": None}
 
     async def extract_pdf_text(self, pdf_bytes: bytes) -> str:
-        """
-        Open the PDF bytes with pdfplumber using tighter layout tolerances,
-        join all page texts, fix unicode escapes and mojibake, then normalize.
-        """
         text_chunks: List[str] = []
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             for page in pdf.pages:
@@ -164,14 +158,14 @@ class Extractor:
                     self.logger.info("Empty text extracted from %s, continuing", url)
                     continue
 
-                self.logger.info("✔ Extracted %d chars for DOI %s from %s", len(text), doi, url)
+                self.logger.info("Extracted %d chars for DOI %s from %s", len(text), doi, url)
                 return text
 
             except Exception as exc:
                 self.logger.info("PDF candidate %s failed: %s", url, exc)
 
         # 4) If we reach here, all candidates failed
-        self.logger.error("❌ All PDF candidates failed for DOI %s", doi)
+        self.logger.error("All PDF candidates failed for DOI %s", doi)
         return None
 
     def _normalize_text(self, text: str) -> str:

@@ -13,15 +13,10 @@ from app.scraper.fetch_router import fetch_publications
 logger = logging.getLogger("scholar-scraper")
 job_store = JobStore(settings.REDIS_URL)
 
-# init RabbitMQ publisher & consumer
 publisher = RabbitPublisher(settings.RABBITMQ_URL)
 consumer  = RabbitConsumer(settings.RABBITMQ_URL)
 
 async def handle_scrape(payload: dict):
-    """
-    Callback for messages from 'scrape_requests' queue.
-    payload: { "job_id": str, "author": str }
-    """
     job_id = payload.get("job_id")
     author = payload.get("author")
     if not job_id or not author:
@@ -46,14 +41,12 @@ async def handle_scrape(payload: dict):
         logger.info(f"[{job_id}] Scraper completed successfully ({len(publications)} papers)")
         await job_store.set_field(job_id, "state", "Scraper completed successfully.")
 
-    # prepare DOI request payload
     doi_request = {
         "job_id": job_id,
         "author": author,
         "results": publications
     }
 
-    # publish to doi-resolve-requests queue
     await publisher.publish("doi-resolve-requests", doi_request)
     logger.info(f"[{job_id}] Published DOI-resolve request")
 

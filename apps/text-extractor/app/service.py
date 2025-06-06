@@ -38,7 +38,7 @@ class TextExtractorService:
             self.input_queue, self._on_message, prefetch_count=self.prefetch_count
         )
         self.logger.info("TextExtractorService started, waiting for messages…")
-        await asyncio.Event().wait()  # keep alive
+        await asyncio.Event().wait()
 
     async def _on_message(self, payload: dict) -> None:
         try:
@@ -67,7 +67,6 @@ class TextExtractorService:
             except Exception as ex:
                 self.logger.exception("Error extracting DOI %s: %s", art.doi, ex)
 
-        # publish results
         try:
             #await self.publisher.publish(self.output_queue, job.dict())
             await self.job_store.set_field(job.job_id, "job_data", json.dumps(job.dict()))

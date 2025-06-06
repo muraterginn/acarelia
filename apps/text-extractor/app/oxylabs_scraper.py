@@ -44,9 +44,6 @@ class OxylabsScraper:
         }
 
     async def fetch_html(self, url: str) -> str:
-        """
-        Verilen URL'in HTML içeriğini Oxylabs Realtime Scraper API üzerinden çeker.
-        """
         async with httpx.AsyncClient(
             auth=(self.username, self.password),
             headers=self.headers,
@@ -62,7 +59,6 @@ class OxylabsScraper:
                     "geo_location": geo,
                 }
 
-                # İnsan davranışını taklit eden rastgele kısa bekleme
                 await asyncio.sleep(random.uniform(1, 3))
                 self.logger.debug(f"[Oxylabs] Attempt {attempt} for {url} (geo={geo})")
 
@@ -75,14 +71,12 @@ class OxylabsScraper:
                     continue
 
                 data = resp.json()
-                # Oxylabs'dan gelen JSON: data["results"][0]["content"]
                 html = data.get("results", [{}])[0].get("content")
                 if not html:
                     self.logger.warning("[Oxylabs] Empty content, retrying...")
                     await asyncio.sleep(self.backoff_factor ** attempt)
                     continue
 
-                # CAPTCHA kontrolü
                 if "recaptcha" in html.lower():
                     self.logger.warning("[Oxylabs] CAPTCHA detected, retrying...")
                     await asyncio.sleep(self.backoff_factor ** attempt)

@@ -7,9 +7,6 @@ router = APIRouter()
 
 @router.post("/scan", response_model=JobResponse)
 async def scan(request: Request, author: str):
-    """
-    Yeni bir scrape job'u kuyruğa ekler ve job_id döner.
-    """
     job_id = uuid4().hex
     payload = ScrapeRequest(job_id=job_id, author=author).dict()
     try:
