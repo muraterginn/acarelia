@@ -47,6 +47,7 @@ class AiAnalyzerService:
             await self.job_store.set_field(job_id, "ai_analyze_status", "AI analyzer started.")
             await self.process_job(job_id)
             await self.job_store.set_field(job_id, "ai_analyze_status", "AI analyzer finished successfully.")
+            await self.job_store.set_field(job_id, "plagiarism_check_status", "Plagiarism checker finished successfully.") # Deneme için koydun, sonradan yorum satırına al.
             logger.info("Job %s processed successfully.", job_id)
 
         except Exception as exc:
