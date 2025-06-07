@@ -41,6 +41,10 @@ async def get_job_data(job_id: str):
     try:
         data = json.loads(data_str) if data_str else {}
     except json.JSONDecodeError:
-        # fall back to returning raw string if it wasn't valid JSON
         data = {"raw": data_str}
+
+    if isinstance(data.get("results"), list):
+        for article in data["results"]:
+            article.pop("text", None)
+
     return JobDataResponse(job_id=job_id, job_data=data)

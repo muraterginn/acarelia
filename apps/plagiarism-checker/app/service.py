@@ -110,7 +110,7 @@ class PlagiarismCheckerService:
                 merged_results.append(merged)
 
             job_data_latest["results"] = merged_results
-            await self.job_store.set_field(job_id, "plagiarism_check_status", "Plagiarism checker successfully finished.")
+            await self.job_store.set_field(job_id, "plagiarism_check_status", "Plagiarism checker Plagiarism checker finished successfully.")
             await self.job_store.set_field(job_id, "job_data", json.dumps(job_data_latest))
             logger.info("Merged and updated job_data in Redis for job_id=%s", job_id)
 
