@@ -13,6 +13,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    networks:
+      - acarelia-network
 
   redis:
     image: redis:6
@@ -29,6 +31,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    networks:
+      - acarelia-network
 
   redis-commander:
     image: rediscommander/redis-commander:latest
@@ -40,6 +44,8 @@ services:
       - "8081:8081"
     environment:
       - REDIS_HOSTS=local:redis:6379
+    networks:
+      - acarelia-network
 
   gateway-api:
     build:
@@ -55,6 +61,8 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    networks:
+      - acarelia-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
@@ -75,6 +83,8 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - acarelia-network
 
   doi-resolver:
     build:
@@ -89,6 +99,8 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - acarelia-network
 
   text-extractor:
     build:
@@ -103,6 +115,8 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - acarelia-network
     
   ai-analyzer:
     build:
@@ -117,6 +131,8 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - acarelia-network
   
   plagiarism-checker:
     build:
@@ -131,3 +147,25 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - acarelia-network
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    image: acarelia-frontend:latest
+    container_name: acarelia_frontend
+    ports:
+      # prod: nginx 80 → host 5173
+      - '5173:80'
+      # dev: vite 5173 → host 5173   (Dockerfile.dev için)
+      # - '5173:5173'
+    depends_on:
+      - gateway-api
+    networks:
+      - acarelia-network
+
+networks:
+  acarelia-network:
+    driver: bridge
