@@ -3,6 +3,7 @@ import logging
 import re
 import aiohttp
 
+from datetime import datetime
 from common.job_store import JobStore
 from common.messaging import RabbitConsumer
 from config import settings
@@ -39,6 +40,8 @@ class PlagiarismCheckerService:
             return
 
         try:
+            now_str = datetime.now().strftime("%d-%m-%Y - %H:%M:%S")
+            await self.job_store.set_field(job_id, "plagiarism_checker_start_time", now_str)
             await self.job_store.set_field(job_id, "plagiarism_check_status", "Plagiarism checker started.")
             raw_job_initial = await self.job_store.get_field(job_id, "job_data")
             if not raw_job_initial:
@@ -110,6 +113,8 @@ class PlagiarismCheckerService:
                 merged_results.append(merged)
 
             job_data_latest["results"] = merged_results
+            now_str = datetime.now().strftime("%d-%m-%Y - %H:%M:%S")
+            await self.job_store.set_field(job_id, "plagiarism_checker_end_time", now_str)
             await self.job_store.set_field(job_id, "plagiarism_check_status", "Plagiarism checker finished successfully.")
             await self.job_store.set_field(job_id, "job_data", json.dumps(job_data_latest))
             logger.info("Merged and updated job_data in Redis for job_id=%s", job_id)

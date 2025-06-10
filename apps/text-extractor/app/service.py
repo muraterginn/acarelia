@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import json
+from datetime import datetime
 from typing import Any
 
 from common.messaging import RabbitConsumer, RabbitPublisher
@@ -47,8 +48,10 @@ class TextExtractorService:
             self.logger.error("Invalid payload: %s", e)
             return
 
+        now_str = datetime.now().strftime("%d-%m-%Y - %H:%M:%S")
+        await self.job_store.set_field(job.job_id, "text_extractor_start_time", now_str)
         await self.job_store.set_field(job.job_id, "state", "Extract service started.")
-        self.logger.info("➡ Processing job %s", job.job_id)
+        self.logger.info("Processing job %s", job.job_id)
 
         for art in job.results:
             if not (art.doi and art.verified and art.open_access):
@@ -57,7 +60,7 @@ class TextExtractorService:
             try:
                 text = await self.extractor.get_text_for_doi(art.doi)
                 art.text = text
-                self.logger.info("✔ Extracted text for DOI %s", art.doi)
+                self.logger.info("Extracted text for DOI %s", art.doi)
                 self.logger.info(
                     "─── Extracted full text for DOI %s ───\n%s\n────────────────────────────",
                     art.doi,
@@ -71,6 +74,8 @@ class TextExtractorService:
             await self.job_store.set_field(job.job_id, "job_data", json.dumps(job.dict()))
             await self.publisher.publish(self.output_queue, {"job_id": job.job_id})
             await self.publisher.publish(self.output_queue_2, {"job_id": job.job_id})
+            now_str = datetime.now().strftime("%d-%m-%Y - %H:%M:%S")
+            await self.job_store.set_field(job.job_id, "text_extractor_end_time", now_str)
             await self.job_store.set_field(job.job_id, "state", "Extract service finished successfully.")
             self.logger.info("Job %s done, published to %s", job.job_id, self.output_queue)
         except Exception as ex:

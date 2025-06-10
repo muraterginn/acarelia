@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import httpx
+from datetime import datetime
 from rapidfuzz import fuzz
 
 from common.messaging import RabbitConsumer, RabbitPublisher
@@ -34,7 +35,7 @@ class DoiResolverService:
             items = resp.json().get("message", {}).get("items", [])
 
         if not items:
-            logger.warning(f"[{job_id}] '{title}' → no CrossRef items")
+            logger.warning(f"[{job_id}] '{title}' no CrossRef items")
             return None, False
 
         title_norm = self.normalize(title)
@@ -47,7 +48,7 @@ class DoiResolverService:
                 passed.append(item)
 
         if not passed:
-            logger.info(f"[{job_id}] '{title}' → title sim max={max_sim:.1f}% < {settings.TITLE_SIM_THRESHOLD}%")
+            logger.info(f"[{job_id}] '{title}' title sim max={max_sim:.1f}% < {settings.TITLE_SIM_THRESHOLD}%")
             return None, False
 
         author_norm = self.normalize(author)
@@ -58,10 +59,10 @@ class DoiResolverService:
                 best_sim = max(best_sim, fuzz.token_sort_ratio(author_norm, self.normalize(name)))
             if best_sim >= settings.AUTHOR_SIM_THRESHOLD:
                 doi = item.get("DOI")
-                logger.info(f"[{job_id}] '{title}' → matched (author sim={best_sim:.1f}%) ⇒ DOI={doi}")
+                logger.info(f"[{job_id}] '{title}' matched (author sim={best_sim:.1f}%) ⇒ DOI={doi}")
                 return doi, True
 
-        logger.info(f"[{job_id}] '{title}' → no author sim ≥ {settings.AUTHOR_SIM_THRESHOLD}% (max={best_sim:.1f}%)")
+        logger.info(f"[{job_id}] '{title}' no author sim ≥ {settings.AUTHOR_SIM_THRESHOLD}% (max={best_sim:.1f}%)")
         return None, False
 
     async def detect_open_access(self, job_id: str, doi: str) -> bool:
@@ -91,6 +92,8 @@ class DoiResolverService:
         author  = payload.get("author", "")
         results = payload.get("results", [])
 
+        now_str = datetime.now().strftime("%d-%m-%Y - %H:%M:%S")
+        await self.job_store.set_field(job_id, "doi_resolver_start_time", now_str)
         await self.job_store.set_field(job_id, "state", "DOIs resolving.")
         enriched = []
 
@@ -110,6 +113,8 @@ class DoiResolverService:
                 "job_id": job_id, "author": author, "results": enriched
             })
 
+            now_str = datetime.now().strftime("%d-%m-%Y - %H:%M:%S")
+            await self.job_store.set_field(job_id, "doi_resolver_end_time", now_str)
             await self.job_store.set_field(job_id, "state", "DOIs resolved.")
         except Exception:
             await self.job_store.set_field(job_id, "state", "DOI resolver error.")

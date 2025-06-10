@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.routers.scan import router as scan_router
 from app.routers.status import router as status_router
 from common.messaging import RabbitPublisher
+from common.job_store import JobStore
 from app.config import settings
 from app.logger import logger
 
@@ -18,6 +19,7 @@ app.include_router(status_router, prefix="/api", tags=["status"])
 async def startup_event():
     logger.info("Gateway API starting up...")
     app.state.rabbitPublisher = RabbitPublisher(settings.RABBITMQ_URL)
+    app.state.job_store = JobStore(settings.REDIS_URL)
     await app.state.rabbitPublisher.connect()
     logger.info("RabbitPublisher connected")
 

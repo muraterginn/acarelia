@@ -30,9 +30,6 @@ class RabbitPublisher:
         await self._chan.default_exchange.publish(msg, routing_key=queue)
 
 class RabbitConsumer:
-    """
-    RabbitMQ üzerinde JSON mesajları tüketmek (consume) için bağımsız bir consumer sınıfı.
-    """
     def __init__(self, url: str):
         self.url = url
         self._conn = None
@@ -51,10 +48,6 @@ class RabbitConsumer:
         *,
         prefetch_count: int = 1
     ):
-        """
-        Belirtilen kuyruğu dinler ve gelen her mesajı on_message fonksiyonuna JSON olarak iletir.
-        prefetch_count ile eş zamanlı alınacak mesaj sayısı kontrol edilir.
-        """
         await self.connect()
         await self._chan.set_qos(prefetch_count=prefetch_count)
         queue = await self._chan.declare_queue(queue_name, durable=True)

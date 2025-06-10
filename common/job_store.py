@@ -38,9 +38,6 @@ class JobStore:
         logger.debug("DEL %s", key)
 
     async def get_all_fields(self, job_id: str) -> Dict[str, str]:
-        """
-        WARNING: this does a key-scan! Avoid in hot paths.
-        """
         r = await self._client()
         pattern = f"job:{job_id}:*"
         cursor = b"0"

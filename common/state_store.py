@@ -5,10 +5,6 @@ from typing import Optional
 logger = logging.getLogger("common.state_store")
 
 class StateStore:
-    """
-    Job bazlı durum güncellemeleri için Redis client.
-    """
-
     def __init__(self, url: str):
         self._url = url
         self._redis: Optional[aioredis.Redis] = None

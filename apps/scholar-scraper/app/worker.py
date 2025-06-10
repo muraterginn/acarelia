@@ -3,6 +3,7 @@ import logging
 import json
 
 import redis.asyncio as aioredis
+from datetime import datetime
 from aio_pika import IncomingMessage
 
 from common.messaging import RabbitPublisher, RabbitConsumer
@@ -24,6 +25,8 @@ async def handle_scrape(payload: dict):
         return
 
     logger.info(f"[{job_id}] Scraping started for author '{author}'")
+    now_str = datetime.now().strftime("%d-%m-%Y - %H:%M:%S")
+    await job_store.set_field(job_id, "scraper_start_time", now_str)
     await job_store.set_field(job_id, "state", "Scraping started.")
 
     try:
@@ -39,6 +42,8 @@ async def handle_scrape(payload: dict):
         return
     else:
         logger.info(f"[{job_id}] Scraper completed successfully ({len(publications)} papers)")
+        now_str = datetime.now().strftime("%d-%m-%Y - %H:%M:%S")
+        await job_store.set_field(job_id, "scraper_end_time", now_str)
         await job_store.set_field(job_id, "state", "Scraper completed successfully.")
 
     doi_request = {

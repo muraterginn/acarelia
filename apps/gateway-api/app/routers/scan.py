@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException
 from uuid import uuid4
+from datetime import datetime
 from common.models import ScrapeRequest, JobResponse
 from app.logger import logger
 
@@ -8,6 +9,8 @@ router = APIRouter()
 @router.post("/scan", response_model=JobResponse)
 async def scan(request: Request, author: str):
     job_id = uuid4().hex
+    now_str = datetime.now().strftime("%d-%m-%Y - %H:%M:%S")
+    await request.app.state.job_store.set_field(job_id, "job_start_time", now_str)
     payload = ScrapeRequest(job_id=job_id, author=author).dict()
     try:
         # app.state.rabbitPublisher üzerinden publish işlemi
